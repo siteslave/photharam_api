@@ -4,6 +4,7 @@ require('dotenv').config();
 const Knex = require('knex');
 const crypto = require('crypto');
 var multer = require('multer');
+const moment = require('moment');
 
 const express = require('express');
 const cors = require('cors');
@@ -40,7 +41,16 @@ var db = require('knex')({
     port: +process.env.DB_PORT,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME
-  }
+  },
+  pool: {
+    min: 0,
+    max: 100,
+    afterCreate: (conn, done) => {
+      conn.query('SET NAMES utf8', (err) => {
+        done(err, conn);
+      });
+    }
+  },
 });
 
 let checkAuth = (req, res, next) => {
@@ -104,10 +114,73 @@ app.post('/login', async (req, res) => {
 
 });
 
+app.post('/patient-login', async (req, res) => {
+  var username = req.body.username; // cid
+  var birthday = req.body.password; // birthday
+
+  if (username && birthday) {
+
+    var _mDate = moment(birthday, 'YYYYMMDD');
+    var _year = _mDate.format('YYYY') - 543;
+    var _month = _mDate.format('MM');
+    var _day = _mDate.format('DD');
+
+    var ptBirthday = `${_year}-${_month}-${_day}`;
+
+    try {
+      var rs = await model.loginPatient(db, username, ptBirthday);
+      if (rs[0].length) {
+        var fullname = `${rs[0][0].fname} ${rs[0][0].lname}`;
+        var hn = rs[0][0].hn;
+
+        var token = jwt.sign({ username: username, hn: hn });
+        res.send({ ok: true, token: token, hn: hn, fullname: fullname });
+      } else {
+        res.send({ ok: false, error: 'Invalid username or password!', code: HttpStatus.UNAUTHORIZED });
+      }
+    } catch (error) {
+      console.log(error);
+      res.send({ ok: false, error: error.message, code: HttpStatus.INTERNAL_SERVER_ERROR });
+    }
+
+  } else {
+    res.send({ ok: false, error: 'Invalid data!', code: HttpStatus.INTERNAL_SERVER_ERROR });
+  }
+
+});
+
 app.get('/users', checkAuth, async (req, res, next) => {
   try {
     var rs = await model.getList(db);
     res.send({ ok: true, rows: rs });
+  } catch (error) {
+    console.log(error);
+    res.send({ ok: false, error: error.message, code: HttpStatus.INTERNAL_SERVER_ERROR });
+  }
+});
+
+app.get('/labs/order', checkAuth, async (req, res, next) => {
+  try {
+    var hn = req.decoded.hn;
+    var rs = await model.getLabOrders(db, hn);
+    var data = [];
+    rs.forEach(v => {
+      var obj = {
+        "lab_order_number": v.lab_order_number,
+        "reporter_name": v.reporter_name,
+        "order_date": moment(v.order_date).locale('th').format('DD MMMM YYYY'),
+        "report_date": moment(v.report_date).locale('th').format('DD MMMM YYYY'),
+        "order_time": v.order_time,
+        "report_time": v.report_time,
+        "form_name": v.form_name,
+        "department": v.department,
+        "confirm_report": v.confirm_report
+      };
+
+      data.push(obj);
+
+    });
+    res.send({ ok: true, rows: data });
   } catch (error) {
     console.log(error);
     res.send({ ok: false, error: error.message, code: HttpStatus.INTERNAL_SERVER_ERROR });

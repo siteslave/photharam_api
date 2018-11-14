@@ -31,6 +31,24 @@ module.exports = {
   getInfo(db, id) {
     return db('users')
       .where('id', id);
-  }
+  },
 
+  getLabOrders(db, hn) {
+    return db('lab_head_app')
+      .select('lab_order_number', 'reporter_name', 'order_date',
+        'report_date', 'order_time', 'report_time', 'form_name',
+        'department', 'confirm_report')
+      .where('hn', hn)
+      .orderBy('order_date', 'desc');
+  },
+
+  loginPatient(db, cid, birthday) {
+    var sql = `
+    select p.cid, p.birthday, p.fname, p.lname, p.hn
+    from patient_app as p 
+    where p.cid=? and p.birthday=?
+    `;
+
+    return db.raw(sql, [cid, birthday]);
+  }
 };
