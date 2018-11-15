@@ -48,7 +48,19 @@ module.exports = {
     from patient_app as p 
     where p.cid=? and p.birthday=?
     `;
-
     return db.raw(sql, [cid, birthday]);
+  },
+
+  getLabResult(db, hn, orderId) {
+    var sql = `
+    select o.lab_order_result, o.confirm, i.lab_items_name, 
+    o.lab_items_normal_value_ref, i.lab_items_unit
+
+    from lab_order_mobile_app as o 
+    inner join lab_items as i on i.lab_items_code=o.lab_items_code
+    inner join lab_head_app as h on h.lab_order_number=o.lab_order_number and h.hn=?
+    where o.lab_order_number=?
+    `;
+    return db.raw(sql, [hn, orderId]);
   }
 };

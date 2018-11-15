@@ -187,6 +187,20 @@ app.get('/labs/order', checkAuth, async (req, res, next) => {
   }
 });
 
+app.get('/labs/result', checkAuth, async (req, res, next) => {
+  console.log(req.decoded);
+  try {
+    var hn = req.decoded.hn;
+    var orderId = req.query.orderId;
+
+    var rs = await model.getLabResult(db, hn, orderId);
+    res.send({ ok: true, rows: rs[0] });
+  } catch (error) {
+    console.log(error);
+    res.send({ ok: false, error: error.message, code: HttpStatus.INTERNAL_SERVER_ERROR });
+  }
+});
+
 app.post('/users', checkAuth, async (req, res, next) => {
   try {
     var username = req.body.username;
